@@ -1,0 +1,128 @@
+library(C50)
+library(rpart)
+library(car)
+library(rpart.plot) 
+library(arules) 
+
+setwd("C:/Users/esthe/Desktop/Master/Tipología y cliclo de vida de los datos/Práctica 2")
+
+titanic = read.table("train.csv",fileEncoding="utf-8", header=T, sep="," , dec=".")
+test = read.table("test.csv",fileEncoding="utf-8", header=T, sep="," , dec=".")
+
+
+#Análisis del conjunto de datos Titanic
+dim(titanic)
+summary(titanic)
+dim(test)
+summary(test)
+#Selección del conjunto de datos
+titanic_clean <- titanic[,c(2,3,5,6,10,12)]
+test_clean <-test[,c(2,4,5,9,11)]
+#Analisis del conjunto de datos
+dim(titanic_clean)
+summary(titanic_clean)
+
+#Ceros y nulos
+suppressWarnings(suppressMessages(library(VIM)))
+titanic_clean$Age <- kNN(titanic_clean)$Age
+data = titanic_clean$Embarked
+data[data==''] <- NA
+titanic_clean$Embarked=data
+titanic_clean$Embarked <- kNN(titanic_clean)$Embarked
+
+data = test_clean$Embarked
+data[data==''] <- NA
+test_clean$Embarked=data
+test_clean$Embarked <- kNN(test_clean)$Embarked
+
+summary(titanic_clean)
+
+#Identificación de valores extremos
+boxplot.stats(titanic_clean$Survived)$out
+boxplot.stats(titanic_clean$Pclass)$out
+boxplot.stats(titanic_clean$Age)$out
+boxplot.stats(titanic_clean$Fare)$out
+
+#Discretización de campos
+
+titanic_clean <- within(titanic_clean, {
+  Age <- Recode(Age, 'lo:18="niño"; 18:hi="Adulto"', as.factor.result=TRUE)
+})
+titanic_clean <- within(titanic_clean, {
+  Pclass <- Recode(Pclass, '1="Alta"; 2="Media"; 3="Baja"', as.factor.result=TRUE)
+})
+titanic_clean <- within(titanic_clean, {
+  Survived <- Recode(Survived, '0="Muere"; 1="Sobrevive"', as.factor.result=TRUE)
+})
+
+test_clean <- within(test_clean, {
+  Age <- Recode(Age, 'lo:18="niño"; 18:hi="Adulto"', as.factor.result=TRUE)
+})
+test_clean <- within(test_clean, {
+  Pclass <- Recode(Pclass, '1="Alta"; 2="Media"; 3="Baja"', as.factor.result=TRUE)
+})
+
+summary(test_clean)
+
+
+#Agrupación por clase
+titanic.claseSuperior <- titanic_clean[titanic_clean$Pclass.type == "Alta",]
+titanic.claseMedia <- titanic_clean[titanic_clean$Pclass.type == "Media",]
+titanic.claseBaja <- titanic_clean[titanic_clean$Pclass.type == "Baja",]
+
+#Agrupación por sexo
+titanic.mujeres <- titanic_clean[titanic_clean$Sex.type == "female",]
+titanic.hombre <- titanic_clean[titanic_clean$Sex.type == "male",]
+
+#Agrupación por edad
+titanic.niños <- titanic_clean[titanic_clean$Age.type == "niño",]
+titanic.adultos <- titanic_clean[titanic_clean == "Adulto",]
+
+#Agrupación por puerta de embarque
+titanic.puertaC <- titanic_clean[titanic_clean$Embarked.type == "C",]
+titanic.puertaQ <- titanic_clean[titanic_clean$Embarqued.type == "Q",]
+titanic.puertaS <- titanic_clean[titanic_clean$Embarqued.type == "S",]
+
+#Prueba de normalidad
+
+library(nortest)
+alpha = 0.05
+col.names = colnames(titanic_clean)
+for (i in 1:ncol(titanic_clean)) {
+  if (i == 1) cat("No siguen una distribución normal:\n")
+  if (is.integer(titanic_clean[,i]) | is.numeric(titanic_clean[,i])) {
+    p_val = ad.test(titanic_clean[,i])$p.value
+    if (p_val < alpha) {
+      cat(col.names[i])
+      if (i < ncol(titanic_clean) - 1) cat(", ")
+      if (i %% 3 == 0) cat("\n")
+    }
+  }
+}
+
+#Homogeneidad de la varianza
+
+fligner.test(Fare ~ Sex, data = titanic_clean)
+fligner.test(Fare ~ Age, data = titanic_clean)
+fligner.test(Fare ~ Pclass, data = titanic_clean)
+fligner.test(Fare ~ Embarked, data = titanic_clean)
+fligner.test(Fare ~ Survived, data = titanic_clean)
+
+# Creación del Arbol de Decision
+
+arbol<-rpart( Survived~ .,method= "class", data=titanic_clean)
+print(arbol)
+rpart.plot(arbol, extra=4)
+
+
+arboltest <- predict(arbol, newdata = test_clean, type = "class")
+print(arboltest)
+summary(arboltest)
+test_clean <- within(test_clean, {
+  Survived<- arboltest
+})
+
+#Escritura de los csv 
+
+write.csv(titanic_clean, file = "titanic_clean.csv")
+write.csv(test_clean, file = "test_clean.csv")
