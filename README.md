@@ -7,6 +7,7 @@
 Esta práctica es individual y se ha realizado por **Esther Martín González**.
 ## Ficheros del código fuente
 
+* **Código/titanic**:código para el desarrollo de la práctica.
 * **titanic.csv**:Fichero CSV que consta de 891 registros y se usará para crear el modelo de aprendizaje automático
 * **titanic_clean.csv**:Fichero CSV generado a partir del fichero titanic.csv
 * **test.csv**:Fichero CSV que se usará para realizar pruebas del modelo
